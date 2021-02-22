@@ -10,25 +10,66 @@ const getUserInput = require("./helper/get-user-input")
 const loading = require("./helper/loading")
 const { randomFirstName, randomName, randomDeviceId, normalizeName } = require("./helper/random")
 const { getNewProxy, getCurrentIP } = require("./helper/tinsoft-proxy")
+const {_createOrder, _getServiceMessage} = require('./otpsim/otpsim')
+
+function parseToken(result) {
+
+    result = result.match(/\d+/g)
+    result = result[0]
+    return result
+}
+
+const getOTP = (phone, orderID) => {
+    return new Promise((resolve, reject) => {
+        const start = new Date()
+
+        let handleFn = async () => {
+            let end = new Date() - start
+            if (end > 60000) reject("time out")
+            else {
+                let response = await _getServiceMessage(orderID)
+                console.log('Đang lấy mã số điện thoại', phone)
+                if (response.data.messages) {
+                    const otp = parseToken(response.data.messages[0].sms_content)
+                    resolve(otp)
+                } else {
+                    setTimeout(handleFn, 3000)
+                }
+            }
+        }
+        setTimeout(handleFn, 0)
+    })
+}
 
 setImmediate(async () => {
-    const refCode = 'IO8SED'
-
-    const phone = '0982155810'
+    const refCode = 'JD1JFR'
 
     while (true) {
         try {
+            let isLoadingPhone = true
+            let phone = ''
+            let orderID = ''
+            while (isLoadingPhone) {
+                const getOTPSIMPhone = await _createOrder()
+                if (!getOTPSIMPhone.success) throw new Error(getOTPSIMPhone.message)
+                phone = getOTPSIMPhone.data.phone_number
+                orderID = getOTPSIMPhone.data.session
+                let status = getOTPSIMPhone.message
+                console.log({ statusString: status })
+                if (phone && phone.length > 0)
+                    isLoadingPhone = false
+                await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+            console.log({ phone })
+
             let response
 
             response = await getNewProxy()
+            console.log({response})
 
             const [host, port] = response.proxy.split(':')
 
             console.log({ host, port })
-
-            response = await getCurrentIP(host, port)
-
-            console.log({ ip: response })
 
             require('./helper/create-folder')('data')
 
@@ -59,8 +100,7 @@ setImmediate(async () => {
 
                 console.log(response)
 
-                const otp = await getUserInput()
-
+                const otp = await getOTP(phone, orderID)
                 console.log({ otp })
 
                 response = await registerToken(region, deviceId, deviceName, otp, otpTransId, phone, agent)
