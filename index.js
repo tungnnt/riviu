@@ -14,7 +14,7 @@ const { getNewProxy, getCurrentIP } = require("./helper/tinsoft-proxy")
 setImmediate(async () => {
     const refCode = 'IO8SED'
 
-    const phone = '0889993619'
+    const phone = '0982155810'
 
     while (true) {
         try {
@@ -23,6 +23,8 @@ setImmediate(async () => {
             response = await getNewProxy()
 
             const [host, port] = response.proxy.split(':')
+
+            console.log({ host, port })
 
             response = await getCurrentIP(host, port)
 
